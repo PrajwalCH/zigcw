@@ -56,12 +56,15 @@ fn takeUserInput() !u8 {
 
 fn startGame() !void {
     var words = try readWordsFile("words.dict");
-    defer std.heap.page_allocator.free(words);
-    var words_iter = std.mem.tokenize(words, "\n");
-    // shuffle the words buffer
-    //shuffleWordsBuf(&words);
-    // iterate words buffer
-    while (words_iter.next()) |original_word| {
+    defer {
+        for (words.items) |item| {
+            std.heap.page_allocator.free(item);
+        }
+        words.deinit();
+    }
+    try shuffleWordsBuf(words.items);
+
+    for (words.items) |original_word| {
         try makeAndPrintCringeWord(original_word);
         var user_guess = takeUserGuess(original_word.len) catch |err| switch (err) {
             error.StreamTooLong => {
@@ -84,15 +87,28 @@ fn startGame() !void {
     }
 }
 
-fn readWordsFile(filename: []const u8) ![]u8 {
+fn readWordsFile(filename: []const u8) !std.ArrayList([]u8) {
     var file = try std.fs.cwd().openFile(filename, .{ .read = true, .write = false });
     defer file.close();
 
-    var file_content = try file.reader().readAllAlloc(std.heap.page_allocator, 100);
-    return file_content;
+    var words = std.ArrayList([]u8).init(std.heap.page_allocator);
+
+    while (try file.reader().readUntilDelimiterOrEofAlloc(std.heap.page_allocator, '\n', 100)) |line| {
+        try words.append(line);
+    }
+    return words;
 }
 
-fn shuffleWordsBuf(buf: [][]u8) !void {}
+fn shuffleWordsBuf(words: [][]u8) !void {
+    for (words) |_, i| {
+        const idx = (words.len - 1) - i;
+        const rand_idx = try genRandomNum(0, idx);
+
+        const last_byte: []u8 = words[idx];
+        words[idx] = words[rand_idx];
+        words[rand_idx] = last_byte;
+    }
+}
 
 fn makeAndPrintCringeWord(original_word: []const u8) !void {
     var cringe_word = try std.mem.dupe(std.heap.page_allocator, u8, original_word);

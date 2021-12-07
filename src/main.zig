@@ -1,7 +1,7 @@
 const std = @import("std");
 const debug = std.debug;
 
-const allocater = std.heap.page_allocator;
+const allocator = std.heap.page_allocator;
 
 pub fn main() anyerror!void {
     while (true) {

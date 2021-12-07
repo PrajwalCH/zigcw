@@ -1,4 +1,5 @@
 const std = @import("std");
+const debug = std.debug;
 
 pub fn main() anyerror!void {
     while (true) {
@@ -6,40 +7,46 @@ pub fn main() anyerror!void {
 
         const choosen_menu = takeUserInput() catch |err| switch (err) {
             error.Overflow => {
-                std.debug.print("Number is too big\n", .{});
+                debug.print("Number is too big\n", .{});
                 continue;
             },
             error.InvalidCharacter => {
-                std.debug.print("Please enter a valid number\n", .{});
+                debug.print("Please enter a valid number\n", .{});
                 continue;
             },
             else => {
-                std.debug.print("Unhandled error occured\n", .{});
+                debug.print("Unhandled error occured\n", .{});
                 continue;
             },
         };
 
         if (choosen_menu == 1) {
-            startGame();
+            startGame() catch |err| switch (err) {
+                error.FileNotFound => {
+                    std.debug.warn("'words.dict' data file not found\n", .{});
+                    break;
+                },
+                else => |e| return e,
+            };
         } else if (choosen_menu == 2) {
-            std.debug.print("[Game Exited]\n", .{});
+            debug.print("[Game Exited]\n", .{});
             break;
         } else {
-            std.debug.print("Unknown menu option\n", .{});
+            debug.print("Unknown menu option\n", .{});
             continue;
         }
     }
 }
 
 fn printMenu() void {
-    std.debug.print("1. Start\n", .{});
-    std.debug.print("2. Exit\n", .{});
+    debug.print("1. Start\n", .{});
+    debug.print("2. Exit\n", .{});
 }
 
 fn takeUserInput() !u8 {
-    const stdin = std.io.getStdIn().reader();
+    debug.print("> ", .{});
 
-    std.debug.print("> ", .{});
+    const stdin = std.io.getStdIn().reader();
     const raw_input = try stdin.readUntilDelimiterAlloc(std.heap.page_allocator, '\n', 8192);
     defer std.heap.page_allocator.free(raw_input);
 
@@ -47,11 +54,77 @@ fn takeUserInput() !u8 {
     return choosen_menu;
 }
 
-fn startGame() void {
-    // read words from.file and allocate buffer
+fn startGame() !void {
+    var words = try readWordsFile("words.dict");
+    defer std.heap.page_allocator.free(words);
+    var words_iter = std.mem.tokenize(words, "\n");
     // shuffle the words buffer
+    //shuffleWordsBuf(&words);
     // iterate words buffer
-    // shuffle a word and ask to user for guess
-    // check if user guess it or not
-    // continue no matter what
+    while (words_iter.next()) |original_word| {
+        try makeAndPrintCringeWord(original_word);
+        var user_guess = takeUserGuess(original_word.len) catch |err| switch (err) {
+            error.StreamTooLong => {
+                std.debug.print("Your guess is too long\n", .{});
+                continue;
+            },
+            else => |e| return e,
+        };
+        defer std.heap.page_allocator.free(user_guess);
+
+        if (!std.mem.eql(u8, original_word[0..], user_guess[0..])) {
+            debug.print("Oops you loose\n", .{});
+            debug.print("You guess: {s}\n", .{user_guess});
+            debug.print("Correct word is: {s}\n\n", .{original_word});
+            continue;
+        } else {
+            debug.print("You guess correct\n", .{});
+            continue;
+        }
+    }
+}
+
+fn readWordsFile(filename: []const u8) ![]u8 {
+    var file = try std.fs.cwd().openFile(filename, .{ .read = true, .write = false });
+    defer file.close();
+
+    var file_content = try file.reader().readAllAlloc(std.heap.page_allocator, 100);
+    return file_content;
+}
+
+fn shuffleWordsBuf(buf: [][]u8) !void {}
+
+fn makeAndPrintCringeWord(original_word: []const u8) !void {
+    var cringe_word = try std.mem.dupe(std.heap.page_allocator, u8, original_word);
+    defer std.heap.page_allocator.free(cringe_word);
+
+    try makeCringeWord(cringe_word);
+    debug.print("What is the correct form of '{s}'?\n", .{cringe_word});
+}
+
+fn makeCringeWord(word: []u8) !void {
+    for (word) |_, i| {
+        const idx = (word.len - 1) - i;
+        const rand_idx = try genRandomNum(0, idx);
+
+        const last_byte: u8 = word[idx];
+        word[idx] = word[rand_idx];
+        word[rand_idx] = last_byte;
+    }
+}
+
+fn genRandomNum(from: usize, to: usize) !usize {
+    var seed: usize = undefined;
+    try std.os.getrandom(std.mem.asBytes(&seed));
+
+    var prng = std.rand.DefaultPrng.init(seed);
+    var rand = &prng.random;
+
+    return rand.intRangeAtMost(usize, from, to);
+}
+
+fn takeUserGuess(word_len: usize) ![]u8 {
+    const stdin = std.io.getStdIn().reader();
+    var input = try stdin.readUntilDelimiterAlloc(std.heap.page_allocator, '\n', word_len);
+    return input;
 }

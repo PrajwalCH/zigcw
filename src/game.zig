@@ -80,6 +80,7 @@ fn makeCringeWord(word: []u8) !void {
 }
 
 fn takeUserGuess(word_len: usize) ![]u8 {
+    debug.print("> ", .{});
     var input = try takeInput(allocator, 100);
     return input;
 }

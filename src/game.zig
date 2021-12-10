@@ -29,9 +29,9 @@ pub fn start() !void {
 
         var command = Command.parse(user_guess);
         switch (command) {
-            Command.skip => continue,
-            Command.quit => break,
-            Command.word => {
+            Command.Skip => continue,
+            Command.Quit => break,
+            Command.Word => {
                 if (std.mem.eql(u8, original_word, user_guess)) {
                     debug.print("You guessed it correctly\n\n", .{});
                 } else {

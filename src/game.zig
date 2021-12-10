@@ -1,5 +1,6 @@
 const std = @import("std");
 const takeInput = @import("take_input.zig").takeInput;
+const Command = @import("command.zig").Command;
 
 const debug = std.debug;
 const allocator = std.heap.page_allocator;
@@ -26,14 +27,17 @@ pub fn start() !void {
         };
         defer allocator.free(user_guess);
 
-        if (!std.mem.eql(u8, original_word[0..], user_guess[0..])) {
-            debug.print("Oops you loose\n", .{});
-            debug.print("You guess: {s}\n", .{user_guess});
-            debug.print("Correct word is: {s}\n\n", .{original_word});
-            continue;
-        } else {
-            debug.print("You guess correct\n", .{});
-            continue;
+        var command = Command.parse(user_guess);
+        switch (command) {
+            Command.skip => continue,
+            Command.quit => break,
+            Command.word => {
+                if (std.mem.eql(u8, original_word, user_guess)) {
+                    debug.print("You guessed it correctly\n\n", .{});
+                } else {
+                    debug.print("Oops you guessed it wrong, correct word is '{s}'\n\n", .{original_word});
+                }
+            },
         }
     }
 }

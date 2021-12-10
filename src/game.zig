@@ -16,6 +16,7 @@ pub fn start() !void {
 
     for (words.items) |original_word| {
         try makeAndPrintCringeWord(original_word);
+
         var user_guess = takeUserGuess(original_word.len) catch |err| switch (err) {
             error.StreamTooLong => {
                 debug.print("Your guess is too long\n", .{});
